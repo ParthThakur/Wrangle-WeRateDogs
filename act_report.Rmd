@@ -1,0 +1,158 @@
+---
+title: "Analysis of @WeRateDogs tweets"
+author: "Parth Thakur"
+date: "11 September 2018"
+output:
+  html_document: default
+---
+<a href=https://github.com/ParthThakur/Wrangling-and-Analyzing-WeRateDogs-twitter-archive>
+Github</a>
+
+```{r setup, include=FALSE}
+# R Markdown options
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r}
+# import required libraries.
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+```
+
+Our dataset has data for over 1500 tweets by @WeRateDogs.
+
+@WeRateDogs is a twitter account that rates dogs on the internet on a scale of 
+10. But all the dogs are rated above 10. Why? 
+<a href=https://knowyourmeme.com/memes/theyre-good-dogs-brent>Because they are 
+good dogs, Brent.</a>
+
+This dataset originally contained over 2500 tweets. I used data wrangling 
+techniques to filter out data not needed for this analysis. The wrangling 
+process can be found <a href=https://parththakur.page.link/wrangling>here.</a>
+
+
+```{r, Read Data}
+# Read cleaned dataset.
+df <- read.csv("twitter_archive_master.csv", stringsAsFactors=FALSE)
+rownames(df) <- df$tweet_id
+df$tweet_id <- NULL
+df$dog_breed <- factor(df$dog_breed)
+df$dog_name <- factor(df$dog_name)
+```
+
+The data in our dataset looks something like this:
+
+```{r, Show Data}
+head(df)
+```
+
+
+Let me start by checking some descriptive statistics on the important columns.
+
+```{r, Descriptive statistics}
+#Descriptive statistics on the important columns.
+summary(subset(df, 
+               select=-c(timestamp, text, jpg_url, breed_confidence)))
+```
+
+There are a few that things that become apparent here.
+
+1. The five most common dog names are:
+    - Cooper
+    - Lucy
+    - Charlie
+    - Oliver
+    - Tucker
+    
+2. The five most common dog breeds are:
+    - Golden Retriever
+    - Labrador Retriever
+    - Pembroke
+    - Chihuahua
+    - Pug
+    
+3. There are a few outliers on in both rating numerator, rating denominator. 
+   Most interestingly, there are a few ratings below 10.
+   
+4. Least amount of retweets are 12, while the maximum is 84,113.
+
+5. Least amount of favourites is 80, while the maximum is 161,869.
+
+```{r, read again}
+# To get the values for each name and breed in the last chart, dog_name and 
+# dog_breed had to be factors. But going forward, I want them to be character 
+# class. As R doesn't provide a simple way to change factors to character, reading
+# the dataset back is the fastest and the most simple way.
+
+df <- read.csv("twitter_archive_master.csv", stringsAsFactors=FALSE)
+rownames(df) <- df$tweet_id
+df$tweet_id <- NULL
+df$timestamp <- as.POSIXct(df$timestamp)
+```
+
+
+```{r, create breed factor}
+# Create a factor variable to indicate top 5 most common dog breeds. The 
+# remaining breeds are classified as NA.
+
+breeds <- c('Golden Retriever',
+ 'Labrador Retriever',
+ 'Pembroke',
+ 'Chihuahua',
+ 'Pug')
+
+df = within(df, {
+    breed = ifelse(dog_breed %in% breeds, df$dog_breed, NA)
+})
+df$breed <- factor(df$breed, ordered=TRUE, levels=breeds)
+```
+
+Let me first take a look at the distribution of the ratings.
+
+```{r, distribution rating}
+ggplot(aes(x=rating_numerator), data=subset(df, df$breed != "other")) +
+    geom_histogram(binwidth=1, color="white") +
+    scale_x_continuous(breaks=seq(0,150,15))
+```
+
+Looks like most of the ratings are below 15 with some significant outliers. Let 
+me take a look at the outliers.
+
+```{r, rating outliers}
+filter(df, rating_numerator>15) %>%
+    select(rating_numerator, text)
+```
+
+Looks like a bunch of them are ratings with a decimal point. Highlighting the 
+fact that not all cleanliness issues can be fixed.<br>
+Though most of them are true ratings. Must be exceptionally good dogs.
+
+Now, I want to know tweeting habits of @WeRateDogs. Let's check how much they 
+tweeted over time.
+
+```{r, tweets over time}
+ggplot(aes(x=timestamp), data=df) +
+    geom_density(adjust=1/8, size=1)
+```
+
+Looks like they had an exciting start! But the number of tweets gradually over 
+time. I wonder if the tweeted a type of dog more than the other.
+
+```{r, tweets over time by breed}
+ggplot(aes(x=timestamp, fill=breed), data=df) +
+    geom_density(adjust=1/3, position="stack") +
+    scale_fill_brewer(palette="Spectral")
+```
+
+Looks like the distribution is fairly even. Pugs and Chihuahuas were the most 
+common breeds at the begining, but Pugs seem to fave fallen in numbers near 
+January 2017. Golden Retrievers seemed to be the most popular around that time.
+
+Though no matter what breed, they are all good dogs. :D
+
+<!---
+Refrences: 
+ https://ggplot2.tidyverse.org/reference/geom_density.html
+ http://www.sthda.com/english/wiki/ggplot2-colors-how-to-change-colors-automatically-and-manually
+---!>
